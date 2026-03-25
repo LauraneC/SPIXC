@@ -73,7 +73,7 @@ def fit_linear_regression(X,y):
     Fit a linear regression model
     :param X:
     :param y:
-    :return:
+    :return: x prediction, y prediction, linreg
     """
     # Fit linear regression
     linreg = LinearRegression()
@@ -139,7 +139,7 @@ def fit_RANSAC(X,y):
     RANSAC regressor
     :param X:
     :param y:
-    :return:
+    :return: x prediction, y prediction, linreg, inliermask
     """
 
     # Base estimator (ordinary least squares)
