@@ -10,7 +10,13 @@ from typing import Literal
 MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["random","total","weighted_variance"]
 
-def weighted_avg_and_std(values, weights):
+def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.array):
+    """
+    Compute weighted average and standard deviation.
+    :param values: data used to compute weighted average and standard deviation.
+    :param weights: weights used to compute weighted average and standard deviation.
+    :return: average, standard deviation
+    """
     values = np.asarray(values, dtype=float)
     weights = np.asarray(weights, dtype=float)
 
@@ -23,10 +29,12 @@ def weighted_avg_and_std(values, weights):
     var = np.nansum(weights * (values - avg) ** 2) / sum_w
     return avg, math.sqrt(var)
 
-def get_pdf_peak_value(data_array, remove_outliers=True):
+def get_pdf_peak_value(data_array:pd.DataFrame, remove_outliers:bool=True):
     """Get the elevation of the peak density using a function from
-    Han, X., Zhang, G., Crétaux, J.-F., Wang, J., Schwatke, C., Peng, M., Wang, X., Shum, C. K., Woolway, R. I., Ke, Y., Wang, Y., Zhou, T., & Xu, F. (2025). Surface Water and Ocean Topography (SWOT) L2_HR_PIXC data processing for lakes. In Water Resource Research (1.0.0). Zenodo. https://doi.org/10.5281/zenodo.15735885"""
-
+    Han, X., Zhang, G., Crétaux, J.-F., Wang, J., Schwatke, C., Peng, M., Wang, X., Shum, C. K., Woolway, R. I., Ke, Y., Wang, Y., Zhou, T., & Xu, F. (2025). Surface Water and Ocean Topography (SWOT) L2_HR_PIXC data processing for lakes. In Water Resource Research (1.0.0). Zenodo. https://doi.org/10.5281/zenodo.15735885
+    :param data_array: Array of data
+    :param remove_outliers: if yes remove outliers
+    """
 
     data = data_array["wse"].to_numpy().copy()
     data = data[~np.isnan(data)]
@@ -89,7 +97,12 @@ class SPixc:
         data.sort_index(inplace=True)
         self._data = data
 
-    def _load_polygon(self, polygon_name):
+    def _load_polygon(self, polygon_name:str)->gpd.GeoDataFrame:
+        """
+        Load a polygon, used to define the lake outline.
+        :param polygon_name: filename of the polygone
+        :return: polygone loaded as a geopandas object
+        """
         if self._gdf is None:
             self._polygon_name = polygon_name
             self._gdf = gpd.read_file(polygon_name)
@@ -99,7 +112,8 @@ class SPixc:
 
     def compute_wse(self):
         """
-        Compute wse as defined in ATBD for each acquisition and pixel
+        Compute wse as defined in ATBD for each acquisition and pixel.
+        Remove the EGM2008 modeled geoid,
         """
         data = self.data
         data['wse'] = data['height'] - data['geoid'] - data['solid_earth_tide'] - \
