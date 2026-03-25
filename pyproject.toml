@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "SPIXC"
+dynamic = ["version"] #dynamic versioning
+authors = [
+  { name="Laurane Charrier", email="laurane.charrier@outlook.com" }
+]
+description = "A package to postprocess SWOT PIXC data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0-only" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"]
+
+dependencies = [
+  "earthaccess",
+  "folium",
+  "geopandas",
+  "h5netcdf",
+  "hvplot",
+  "numpy",
+  "matplotlib",
+  "pyvista",
+  "pixcdust",
+  "pyproj",
+  "requests",
+  "regionmask",
+  "shapely",
+  "xarray",
+  "zarr>=2.11,<3.0",
+  "zcollection == 2024.2.0",
+  "netcdf4 == 1.6.5"
+]
+
+
+#
+#[project.urls]
+#Homepage = "https://github.com/ticoi/ticoi.git"
+#Issues = "https://github.com/ticoi/ticoi/issues"
+#
+#
+[tool.hatch.version]
+path = "src/SPIXC/__about__.py"
+#
+#[tool.hatch.envs.dev]
+#inherit = ["default"]
+#dependencies = [
+#  "ruff",
+#  "pytest",
+#  "pre-commit"
+#]
+#
+#[tool.hatch.envs.test]
+#dependencies = [
+#  "pytest",
+#  "nbconvert jupyter"#to run jupernotebook
+#]
+#
+#[[tool.hatch.envs.hatch-test.matrix]]
+#python = ["3.10","3.11", "3.12"]
+
+[tool.ruff]
+line-length = 120
+
+#[tool.pytest.ini_options]
+#filterwarnings = [
+#    "error",
+#    "ignore::UserWarning"]

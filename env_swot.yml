@@ -1,0 +1,22 @@
+name: env_swot
+channels:
+  - conda-forge
+dependencies:
+  - python = 3.10
+  - earthaccess
+  - folium
+  - geopandas
+  - h5netcdf
+  - hvplot
+  - numpy
+  - matplotlib
+  - pyvista
+  - pixcdust
+  - pyproj
+  - requests
+  - regionmask
+  - shapely
+  - xarray
+  - zarr>=2.11,<3.0
+  - zcollection = 2024.2.0
+  - netcdf4 = 1.6.5
