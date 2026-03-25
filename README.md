@@ -1,14 +1,14 @@
 
->> Installation de l'environnement
-micromamba create -n swot_env -f env_swot.yml poetry
-pip install -U eodag==2.12.1 packaging
+# Environment installation
 
-git clone https://github.com/SWOT-community/PixCDust.git
-cd PixCDust
-poetry install
+    micromamba create -n swot_env -f env_swot.yml poetry
+    pip install -U eodag==2.12.1 packaging
+    git clone https://github.com/SWOT-community/PixCDust.git
+    cd PixCDust
+    poetry install
 
 
->> Configuartaion de eodag, pour acceder à hydroweb-next
+# Eodag configuration, to access hydroweb-next
 
 Follow these steps:
 
@@ -18,7 +18,7 @@ Follow these steps:
 
 2b. Carefully store your API-Key
 
-Pour Laurane:
+For example for Laurane:
 Ix2Xrzhfin3EXRkecPmhw6dkXDi9UTHlzU3Yq5ZKQB6FgOdGps
 
 - either in your eodag configuration file (usually ~/.config/eodag/eodag.yml, automatically generated the first time you use eodag) in auth/credentials/apikey="PLEASE_CHANGE_ME"
@@ -30,7 +30,7 @@ Ix2Xrzhfin3EXRkecPmhw6dkXDi9UTHlzU3Yq5ZKQB6FgOdGps
 4. You are all set, run this script `python download_SWOT_Level-2_HR_Raster_-_100m.py`
 
 
-Exemple de eodag.yml (d'habitude dans ~/.config/eodag/eodag.yml):
+Example of eodag.yml (usually in ~/.config/eodag/eodag.yml):
 
 hydroweb_next:
 
@@ -48,11 +48,11 @@ hydroweb_next:
 
         outputs_prefix: 
 
->> Si besoin, installation RiverObs
+# If needed install RiverObs
 
-git clone https://github.com/SWOTAlgorithms/RiverObs.git
-pip install --use-pep517 -e 
+    git clone https://github.com/SWOTAlgorithms/RiverObs.git
+    pip install --use-pep517 -e 
 
->> in case of ModuleNotFoundError: No module named 'zarr.meta'
+# in case of ModuleNotFoundError: No module named 'zarr.meta'
 
-micromamba install -c conda-forge zarr==2.13.3
+    micromamba install -c conda-forge zarr==2.13.3
