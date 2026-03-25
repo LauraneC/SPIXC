@@ -16,9 +16,7 @@ def load_polygon_map_from_folder(folder_path: str, base_name: str = "Lac_Joux") 
     :param folder_path : Path to the folder containing the shapefiles.
     :param base_name : Base name of the shapefiles before the date component.
 
-    :return
-    dict[(int, int), gpd.GeoDataFrame]
-        Dictionary mapping (year, month) -> GeoDataFrame in EPSG:4326.
+    :return  Dictionary mapping (year, month) -> GeoDataFrame in EPSG:4326.
     """
     polygon_map = {}
     pattern = re.compile(
