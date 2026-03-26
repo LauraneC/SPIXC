@@ -19,7 +19,7 @@ Follow these steps:
 2b. Carefully store your API-Key
 
 For example for Laurane:
-Ix2Xrzhfin3EXRkecPmhw6dkXDi9UTHlzU3Yq5ZKQB6FgOdGps
+5okXEHjoarWR1VQH7NB3AnU1d0KY2mPuvHyDlXkBQ1ZdTdFvbY
 
 - either in your eodag configuration file (usually ~/.config/eodag/eodag.yml, automatically generated the first time you use eodag) in auth/credentials/apikey="PLEASE_CHANGE_ME"
 

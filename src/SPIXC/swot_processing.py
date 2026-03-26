@@ -120,7 +120,7 @@ class SPixc:
                       data['load_tide_fes'] - data['pole_tide']
         data['height_std'] = 1 / (data['phase_noise_std'] * data['dheight_dphase']) ** 2
 
-    def compute_weighted_mean_wse_by_day(self, method_wse:MethodWSE="ATBD",method_uncertainty="") -> pd.DataFrame:
+    def compute_weighted_mean_wse_by_day(self, method_wse:MethodWSE="ATBD",method_uncertainty="weighted_variance") -> pd.DataFrame:
         """
         Compute wse per day for the entire dataframe, using weighted wse as defined in ATBD
         """
@@ -134,6 +134,7 @@ class SPixc:
             return weighted_sum / weight_sum
 
         def uncertainty_total(group):
+            nb_pixel = group.height_std.count()
             weight_sum = group.height_std.sum()
             height_mean = np.sum(group.height * group.height_std)/weight_sum
             weighted_std = ((group.height -height_mean) * group.height_std).sum()/weight_sum
@@ -160,12 +161,14 @@ class SPixc:
         if not data.empty:
             if method_wse == "ATBD": wse_by_day = data.groupby(data.index.date).apply(weighted_mean_wse)
             elif method_wse == "gaussianKDE": wse_by_day= data.groupby(data.index.date).apply(get_pdf_peak_value)
-            else: raise ValueError(f"Please enter one of this option {MethodWSE}")
+            else: raise ValueError(f"Please set a value for method_wse among these options {MethodWSE}")
             if method_uncertainty == "random": results = data.groupby(data.index.date).apply(uncertainty_random)
             elif method_uncertainty == "total": results = data.groupby(data.index.date).apply(
                 uncertainty_total)
             elif method_uncertainty == "weighted_variance": results = data.groupby(data.index.date).apply(
                 uncertainty_weighted_variance)
+            else: raise ValueError(f"Please set a value for method_uncertainty among these options {MethodSTD}")
+
             self._wse_by_day = pd.DataFrame({"wse_by_day": wse_by_day, "uncertainty": results["uncertainty"],"n_points":results["n_points_eff"]})
             return self._wse_by_day
         return None
