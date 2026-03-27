@@ -23,8 +23,9 @@ try:
         variables=[
             'time', 'height', 'sig0', 'classification', 'water_frac',
             'pixel_area', 'phase_noise_std', 'dheight_dphase', 'geoid',
-            'solid_earth_tide', 'load_tide_fes', 'pole_tide', 'geolocation_qual',"phase_unwrapping_region"
-        ],
+            'solid_earth_tide', 'load_tide_fes', 'pole_tide', 'geolocation_qual', "phase_unwrapping_region",
+            "layover_impact", "inc", "ancillary_surface_classification_flag", "range_index", "azimuth_index",
+            "eff_num_rare_looks", "eff_num_medium_looks"],
         area_of_interest=gdf_geom,
         conditions=conditions,
     )

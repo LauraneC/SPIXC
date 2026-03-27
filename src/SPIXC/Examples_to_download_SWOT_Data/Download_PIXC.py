@@ -1,40 +1,70 @@
-import sys
-from pixcdust.readers.netcdf import NcSimpleReader
+from pixcdust.downloaders.hydroweb_next import PixCDownloader
 import geopandas as gpd
+from datetime import datetime
+import glob
+import subprocess
 import os
-import warnings
+import pandas as pd
 
-warnings.filterwarnings("ignore")
-
-# Get NetCDF file path from command line
-ncfile = sys.argv[1]
-output_dir = sys.argv[2]
-gdf_geom_name = sys.argv[3]
-gdf_geom = gpd.read_file(gdf_geom_name)
+print("Hello")
+gdf_geom_file_name = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/area_joux.gpkg"
+filename_crash_file = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/crash_files.txt"
+path_data = '/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/'
 
 
+dates = (datetime(2023,1,1),datetime(2026,3,25))
+output_dir = os.path.join(path_data, 'gpd_withoutfiltering')
+path_netcdf = os.path.join(path_data, 'netcdf')
+#
+# ## Download PIXC as NetCDF
+os.makedirs(path_netcdf, exist_ok=True)
+#
+gdf_geom = gpd.read_file(gdf_geom_file_name)
 
-try:
-
-    conditions = {}
-
-    ds_PIXC_nc = NcSimpleReader(
-        path=ncfile,
-        variables=[
-            'time', 'height', 'sig0', 'classification', 'water_frac',
-            'pixel_area', 'phase_noise_std', 'dheight_dphase', 'geoid',
-            'solid_earth_tide', 'load_tide_fes', 'pole_tide', 'geolocation_qual',"phase_unwrapping_region","layover_impact","inc","ancillary_surface_classification_flag"
-        ],
-        area_of_interest=gdf_geom,
-        conditions=conditions,
+pixcdownloader = PixCDownloader(
+    gdf_geom,
+    dates,
+    verbose=1,
+    path_download=path_netcdf
     )
-    ds_PIXC_nc.open_mfdataset(orbit_info=True)
+pixcdownloader.search_download()
 
-    ds_PIXC_ggp = ds_PIXC_nc.to_geodataframe()
+#Save it csv
+nc_files = glob.glob(path_data + 'netcdf/*/*.nc')
+os.makedirs(output_dir, exist_ok=True)
+crashed_files = []
+for ncfile in nc_files:
+    print(f"Processing: {ncfile}")
+    try:
+        result = subprocess.run(
+            ['python3', 'Export_PIXC_netcdf_to_csv.py', ncfile, output_dir, gdf_geom_file_name],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        try:
+            result = subprocess.run(
+                ['python3', 'Export_PIXC_netcdf_to_csv.py', ncfile, output_dir, gdf_geom_file_name],
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Crashed on {ncfile} with exit code {e.returncode}")
+            crashed_files.append(ncfile)
 
-    csv_filename = os.path.join(output_dir, f'{os.path.basename(ncfile).replace(".nc", ".csv")}')
-    ds_PIXC_ggp.to_csv(csv_filename, index=False)
+# Optionally, save the crashed file paths to a text file
+if crashed_files:
+    with open(filename_crash_file, "w") as f:
+        for file in crashed_files:
+            f.write(f"{file}\n")
 
-except Exception as e:
-    print(f"Error processing {ncfile}: {e}")
-    sys.exit(1)
+    print(f"\n⚠️ {len(crashed_files)} files crashed. Paths saved to {filename_crash_file}.")
+else:
+    print("\n✅ All files processed successfully.")
+
+## Merge them into one csv file
+csv_files = glob.glob(os.path.join(output_dir, "*.csv"))
+
+# Read and concatenate all CSV files
+df_combined = pd.concat((pd.read_csv(file) for file in csv_files), ignore_index=True)
+
+df_combined.to_csv(f'{path_data}/combined.csv', index=False)
+

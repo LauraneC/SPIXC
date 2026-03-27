@@ -9,6 +9,7 @@ from typing import Literal
 
 MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["random","total","weighted_variance"]
+MethodFilter = Literal["robust","normal"]
 
 def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.array):
     """
@@ -123,6 +124,8 @@ class SPixc:
     def compute_weighted_mean_wse_by_day(self, method_wse:MethodWSE="ATBD",method_uncertainty="weighted_variance") -> pd.DataFrame:
         """
         Compute wse per day for the entire dataframe, using weighted wse as defined in ATBD
+        :param method_wse: Method used to compute wse for one particular acquisition
+        :param method_uncertainty: Method used to compute uncertainty for one particular acquisition
         """
         data = self.data
         if 'wse' not in data or 'height_std' not in data:
@@ -140,12 +143,19 @@ class SPixc:
             weighted_std = ((group.height -height_mean) * group.height_std).sum()/weight_sum
             first_part = (np.sum(group.eff_num_medium_looks/group.eff_num_rare_looks)/nb_pixel)/nb_pixel
             uncertainty = np.sqrt(first_part)*np.sqrt(weighted_std)
-            return uncertainty
+            return pd.Series({
+                "uncertainty": uncertainty,
+                "n_points_eff": nb_pixel
+            })
 
         def uncertainty_random(group):
+            nb_pixel = group.height_std.count()
             wp_normalized = group.phase_noise_std * group.dheight_dphase
             uncertainty = np.sqrt(np.sum(group.phase_noise_std)) * np.abs((np.sum(group.dheight_dphase**2*wp_normalized)/np.sum(wp_normalized))/(np.sum(group.dheight_dphase*wp_normalized)/np.sum(wp_normalized)))
-            return uncertainty
+            return pd.Series({
+                "uncertainty": uncertainty,
+                "n_points_eff": nb_pixel
+            })
 
         def uncertainty_weighted_variance(group):
             weight_sum = group.height_std.sum()
@@ -217,7 +227,7 @@ class SPixc:
             # Apply the filter using .where() on the dataset
             self.data = self.data[(operator_func(self.data[var], threshold))]
 
-    def filter_by_space_stats(self, type: str = "normal", treshold: int = 2) -> pd.DataFrame:
+    def filter_by_space_stats(self, type:MethodFilter = "normal", treshold: int = 2) -> pd.DataFrame:
         """
         Filter wse per pixel and day using spatial statics
         :param type: type of statics, normal
@@ -231,34 +241,6 @@ class SPixc:
 
         if type == "normal":
             data["wse_center"] = group_stats("mean")
-            data["wse_scale"] = group_stats("std")
-
-        elif type == "normal_weightedstd":
-            #filter based on the weighted average and weighted std
-            # Apply on each group and return as two named columns
-            group_stats = (
-                data.groupby("time")
-                .apply(lambda g: pd.Series(
-                    weighted_avg_and_std(g["wse"], g["height_std"]),
-                    index=["wse_center", "wse_scale"]
-                ))
-            )
-
-            data["wse_center"] = group_stats.wse_center
-            data["wse_scale"] = group_stats.wse_scale
-
-        elif type == "normal_weighted":
-            #filter based on the weighted average and not weighted std
-
-            # Apply on each group and return as two named columns
-            group_stats_weighted = (
-                data.groupby("time")
-                .apply(lambda g: pd.Series(
-                    weighted_avg_and_std(g["wse"], g["height_std"]),
-                    index=["wse_center", "wse_scale"]
-                ))
-            )
-            data["wse_center"] = group_stats_weighted.wse_center
             data["wse_scale"] = group_stats("std")
 
         elif type == "robust":
@@ -309,7 +291,7 @@ class SPixc:
 
     def filter_by_wsedaystats(self,type="normal",treshold = 2):
         """
-
+        Filter the wse time series using the temporal statistics of the time series
         :param type:
         :param treshold:
         :return:
