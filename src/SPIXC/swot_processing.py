@@ -77,6 +77,7 @@ class SPixc:
         self._polygon_name = None
         self._gdf = None
         self._wse_by_day = None
+        self._area = None
 
     ### LOADER
 
@@ -109,8 +110,35 @@ class SPixc:
             self._gdf = gpd.read_file(polygon_name)
         return self._gdf
 
-    ### COMPUTATION
+    ### AREA COMPUTATION
+    def computation_area(self):
+        """
+        Compute total area of the lake, using ATBD formula:
+        area = pixel area * (pixel classified as open water + pixel classified as water edge * water fraction)
 
+        The SWOT pixel classification are:
+        1 = land in keep buffer
+        2 = land on a water edge
+        3 = detected water on a land edge
+        4 = detected water not on an edge (i.e., interior water)
+        5 = dark water
+        6 = low coherence detected water edge
+        7 = low coherence detected water (not on an edge)
+        :return:
+        """
+        def area_computation(data):
+            index_water = np.where([(data.classification > 2)])[1] #index of pixels detected as water
+            percentage_cover_water_per_pixel = np.ones_like(data.classification[index_water]) #fill with ones
+            index_water_edge = np.where([(data.classification == 3)|(data.classification == 6)])[1] #index of pixels detected as water edge
+            percentage_cover_water_per_pixel[index_water_edge] = percentage_cover_water_per_pixel[index_water_edge] * data.water_frac[index_water_edge]#multiply water edge by water fraction
+            area_total = np.sum(percentage_cover_water_per_pixel * data.pixel_area)#sum of total area
+            return area_total
+
+        self._area = self.data.groupby(self.data.index.date).apply(area_computation) / 10 ** 6
+        return self._area
+
+
+    ### WSE COMPUTATION
     def compute_wse(self):
         """
         Compute wse as defined in ATBD for each acquisition and pixel.
@@ -231,7 +259,6 @@ class SPixc:
         """
         Filter wse per pixel and day using spatial statics
         :param type: type of statics, normal
-        :return:
         """
         data = self.data
         if 'wse' not in data:
@@ -251,7 +278,7 @@ class SPixc:
             ) * 1.4826  # scaling factor to make MAD ~ std
 
         else:
-            raise ValueError("Please enter robust, normal or normal_weighted")
+            raise ValueError(f"Please enter one of this options {MethodFilter}")
 
         # Keep only values within center ± threshold*scale
         self.data = data[(data["wse"] >= data["wse_center"] - treshold * data["wse_scale"]) &
@@ -262,7 +289,6 @@ class SPixc:
         """
         Filter wse per pixel and day using temporal statistics
         :param type:
-        :return:
         """
         data = self.data
         if 'wse' not in data:
@@ -282,7 +308,7 @@ class SPixc:
             ) * 1.4826  # scaling factor to make MAD ~ std
 
         else:
-            raise ValueError("Please enter robust or normal")
+            raise ValueError(f"Please enter one of this options {MethodFilter}")
 
         # Keep only values within center ± threshold*scale
         self.data = data[(data["wse"] >= data["wse_center"] - treshold * data["wse_scale"]) &
