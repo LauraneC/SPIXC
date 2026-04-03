@@ -30,6 +30,76 @@ def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.arra
     var = np.nansum(weights * (values - avg) ** 2) / sum_w
     return avg, math.sqrt(var)
 
+import numba as nb
+import numpy as np
+
+@nb.njit
+def weighted_mean_numba(values, weights, group_idx, n_groups):
+    sum_w = np.zeros(n_groups)
+    sum_vw = np.zeros(n_groups)
+
+    for i in range(values.shape[0]):
+        g = group_idx[i]
+        w = weights[i]
+        v = values[i]
+
+        if not np.isnan(v) and not np.isnan(w):
+            sum_w[g] += w
+            sum_vw[g] += v * w
+
+    result = np.empty(n_groups)
+    for g in range(n_groups):
+        if sum_w[g] > 0:
+            result[g] = sum_vw[g] / sum_w[g]
+        else:
+            result[g] = np.nan
+
+    return result
+
+@nb.njit
+def uncertainty_weighted_variance_numba(height, weights, group_idx, n_groups):
+    sum_w = np.zeros(n_groups)
+    sum_hw = np.zeros(n_groups)
+    sum_w2 = np.zeros(n_groups)
+
+    # First pass
+    for i in range(height.shape[0]):
+        g = group_idx[i]
+        w = weights[i]
+        h = height[i]
+
+        if not np.isnan(h) and not np.isnan(w):
+            sum_w[g] += w
+            sum_hw[g] += h * w
+            sum_w2[g] += w * w
+
+    mean = sum_hw / sum_w
+
+    # Second pass
+    var = np.zeros(n_groups)
+    for i in range(height.shape[0]):
+        g = group_idx[i]
+        w = weights[i]
+        h = height[i]
+
+        if not np.isnan(h) and not np.isnan(w):
+            diff = h - mean[g]
+            var[g] += w * diff * diff
+
+    result = np.empty(n_groups)
+    Neff = np.empty(n_groups)
+
+    for g in range(n_groups):
+        if sum_w[g] > 0:
+            var[g] /= sum_w[g]
+            Neff[g] = sum_w[g]**2 / sum_w2[g]
+            result[g] = np.sqrt(var[g] / Neff[g])
+        else:
+            result[g] = np.nan
+            Neff[g] = np.nan
+
+    return result, Neff
+
 def get_pdf_peak_value(data_array:pd.DataFrame, remove_outliers:bool=True):
     """Get the elevation of the peak density using a function from
     Han, X., Zhang, G., Crétaux, J.-F., Wang, J., Schwatke, C., Peng, M., Wang, X., Shum, C. K., Woolway, R. I., Ke, Y., Wang, Y., Zhou, T., & Xu, F. (2025). Surface Water and Ocean Topography (SWOT) L2_HR_PIXC data processing for lakes. In Water Resource Research (1.0.0). Zenodo. https://doi.org/10.5281/zenodo.15735885
@@ -148,6 +218,48 @@ class SPixc:
         data['wse'] = data['height'] - data['geoid'] - data['solid_earth_tide'] - \
                       data['load_tide_fes'] - data['pole_tide']
         data['height_std'] = 1 / (data['phase_noise_std'] * data['dheight_dphase']) ** 2
+
+    from numba import njit
+
+    def compute_weighted_mean_wse_by_day_fast(self, method_wse:MethodWSE="ATBD",method_uncertainty:MethodSTD="weighted_variance") -> pd.DataFrame:
+        data = self.data
+        if 'wse' not in data or 'height_std' not in data:
+            self.compute_wse()
+
+        dates = data.index.date
+        unique_dates, group_idx = np.unique(dates, return_inverse=True)
+        n_groups = len(unique_dates)
+
+        wse = data["wse"].to_numpy()
+        height = data["height"].to_numpy()
+        weights = data["height_std"].to_numpy()
+
+
+        if method_wse == "ATBD":
+            wse_by_day = weighted_mean_numba(wse, weights, group_idx, n_groups)
+        elif method_wse == "gaussianKDE":
+            wse_by_day = weighted_mean_numba(wse, weights, group_idx, n_groups)
+        else:
+            raise ValueError(f"Please set a value for method_wse among these options {MethodWSE}")
+
+        if method_uncertainty == "random":
+            uncertainty, Neff = uncertainty_weighted_variance_numba(
+                height, weights, group_idx, n_groups
+            )
+        elif method_uncertainty == "total":
+            uncertainty, Neff = uncertainty_weighted_variance_numba(
+                height, weights, group_idx, n_groups
+            )
+        elif method_uncertainty == "weighted_variance":
+            uncertainty, Neff = uncertainty_weighted_variance_numba(
+                height, weights, group_idx, n_groups
+            )
+
+        return pd.DataFrame({
+            "wse_by_day": wse_by_day,
+            "uncertainty": uncertainty,
+            "n_points": Neff
+        }, index=unique_dates)
 
     def compute_weighted_mean_wse_by_day(self, method_wse:MethodWSE="ATBD",method_uncertainty="weighted_variance") -> pd.DataFrame:
         """
