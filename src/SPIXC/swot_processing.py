@@ -6,6 +6,10 @@ import numpy as np
 import math
 from scipy.stats import gaussian_kde
 from typing import Literal
+from pandas import Timestamp
+import numba as nb
+import numpy as np
+
 
 MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["random","total","weighted_variance"]
@@ -30,8 +34,7 @@ def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.arra
     var = np.nansum(weights * (values - avg) ** 2) / sum_w
     return avg, math.sqrt(var)
 
-import numba as nb
-import numpy as np
+
 
 @nb.njit
 def weighted_mean_numba(values, weights, group_idx, n_groups):
@@ -367,7 +370,7 @@ class SPixc:
             # Apply the filter using .where() on the dataset
             self.data = self.data[(operator_func(self.data[var], threshold))]
 
-    def filter_by_space_stats(self, type:MethodFilter = "normal", treshold: int = 2) -> pd.DataFrame:
+    def filter_by_space_stats(self, method_filter:MethodFilter = "normal", treshold: int = 2) -> pd.DataFrame:
         """
         Filter wse per pixel and day using spatial statics
         :param type: type of statics, normal
@@ -378,11 +381,11 @@ class SPixc:
         group_stats = data.groupby("time")[
             "wse"].transform  # to assign the computed criterion on the original dataframe
 
-        if type == "normal":
+        if method_filter == "normal":
             data["wse_center"] = group_stats("mean")
             data["wse_scale"] = group_stats("std")
 
-        elif type == "robust":
+        elif method_filter == "robust":
             data["wse_center"] = group_stats("median")
             # MAD = median(|x - median|)
             data["wse_scale"] = data.groupby("time")["wse"].transform(
@@ -397,7 +400,7 @@ class SPixc:
                          (data["wse"] <= data["wse_center"] + treshold * data["wse_scale"])].drop(
             columns=["wse_center", "wse_scale"])
 
-    def filter_by_temporal_stats(self, type: str = "normal", treshold: int = 3) -> pd.DataFrame:
+    def filter_by_temporal_stats(self, method_filter: str = "normal", treshold: int = 3) -> pd.DataFrame:
         """
         Filter wse per pixel and day using temporal statistics
         :param type:
@@ -408,11 +411,11 @@ class SPixc:
         group_stats = data.groupby(["latitude", "longitude"])[
             "wse"].transform  # to assign the computed criterion on the original dataframe
 
-        if type == "normal":
+        if method_filter == "normal":
             data["wse_center"] = group_stats("mean")
             data["wse_scale"] = group_stats("std")
 
-        elif type == "robust":
+        elif method_filter == "robust":
             data["wse_center"] = group_stats("median")
             # MAD = median(|x - median|)
             data["wse_scale"] = data.groupby(["latitude", "longitude"])["wse"].transform(
@@ -427,7 +430,7 @@ class SPixc:
                          (data["wse"] <= data["wse_center"] + treshold * data["wse_scale"])].drop(
             columns=["wse_center", "wse_scale"])
 
-    def filter_by_wsedaystats(self,type="normal",treshold = 2):
+    def filter_by_wsedaystats(self,method="normal",treshold = 2):
         """
         Filter the wse time series using the temporal statistics of the time series
         :param type:
@@ -443,10 +446,11 @@ class SPixc:
         if self._wse_by_day is None:
             self.compute_weighted_mean_wse_by_day()
 
-        if type == "normal":
+        if method == "normal":
             center, scale = self._wse_by_day.wse_by_day.mean(), self._wse_by_day.wse_by_day.std()
-        elif type == "robust":
-            center, scale = np.median(self._wse_by_day.wse_by_day), np.median(np.abs(self._wse_by_day.wse_by_day - np.median(self._wse_by_day.wse_by_day)))* 1.4826
+        elif method == "robust":
+            center = np.median(self._wse_by_day.wse_by_day)
+            scale =  np.median(np.abs(self._wse_by_day.wse_by_day -center))* 1.4826
 
         self.data = data[(data["wse"] >= center - treshold * scale) &
                           (data["wse"] <= center + treshold * scale)]
@@ -482,7 +486,6 @@ class SPixc:
         :return:
         """
 
-        from pandas import Timestamp
 
         # Convert polygon_map to time-indexed structure
         poly_dates = []
