@@ -472,7 +472,6 @@ class SPixc:
             "gt": pl.Expr.__gt__,
             "ge": pl.Expr.__ge__,
         }
-        print("Hello")
         schema = self.data.collect_schema()
         filters = []
 
