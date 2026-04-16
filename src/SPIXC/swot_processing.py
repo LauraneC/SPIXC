@@ -430,7 +430,7 @@ class SPixc:
                          (data["wse"] <= data["wse_center"] + treshold * data["wse_scale"])].drop(
             columns=["wse_center", "wse_scale"])
 
-    def filter_by_wsedaystats(self,method="normal",treshold = 2):
+    def filter_by_wsedaystats(self,method_filter="normal",treshold = 2):
         """
         Filter the wse time series using the temporal statistics of the time series
         :param type:
@@ -446,9 +446,9 @@ class SPixc:
         if self._wse_by_day is None:
             self.compute_weighted_mean_wse_by_day()
 
-        if method == "normal":
+        if method_filter == "normal":
             center, scale = self._wse_by_day.wse_by_day.mean(), self._wse_by_day.wse_by_day.std()
-        elif method == "robust":
+        elif method_filter == "robust":
             center = np.median(self._wse_by_day.wse_by_day)
             scale =  np.median(np.abs(self._wse_by_day.wse_by_day -center))* 1.4826
 

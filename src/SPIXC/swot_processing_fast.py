@@ -4,6 +4,8 @@ import numba as nb
 import pandas as pd
 from typing import Literal
 
+from Laurane_other_scripts.SWOT.PIXC_analysis.Compa_flags_impacts import wse_by_day
+
 MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["weighted_variance"]
 
@@ -168,13 +170,7 @@ class SPixcFast:
         self.filename = filename
         self._lazy = (pl.scan_csv(
         filename,
-        try_parse_dates=True,  # 👈 important
-    )
-    .with_columns(
-        pl.col("time")
-        .str.strptime(pl.Datetime, strict=False)  # 👈 tolerant parsing
-    )
-)
+        try_parse_dates=True,))
         self._filtered = self._lazy
         self._numpy_cache = None
         self._wse_by_day = None
@@ -214,6 +210,8 @@ class SPixcFast:
         if self._numpy_cache is not None:
             return self._numpy_cache
 
+        if "wse" not in self._filtered.collect_schema().names(): self.compute_wse()
+
         df = (
             self._filtered
             .select([
@@ -221,19 +219,14 @@ class SPixcFast:
                 "solid_earth_tide", "load_tide_fes", "pole_tide",
                 "phase_noise_std", "dheight_dphase",
                 "eff_num_medium_looks", "eff_num_rare_looks",
-                "latitude", "longitude"
+                "latitude", "longitude","wse","height_std"
             ])
-            .with_columns(pl.col("time").str.strptime(pl.Datetime))
             .collect()
         )
 
         # numpy arrays
         time = df["time"].to_numpy()
         height = df["height"].to_numpy()
-        geoid = df["geoid"].to_numpy()
-        solid = df["solid_earth_tide"].to_numpy()
-        load = df["load_tide_fes"].to_numpy()
-        pole = df["pole_tide"].to_numpy()
 
         phase = df["phase_noise_std"].to_numpy()
         dheight = df["dheight_dphase"].to_numpy()
@@ -244,8 +237,8 @@ class SPixcFast:
         lat = df["latitude"].to_numpy()
         lon = df["longitude"].to_numpy()
 
-        wse = height - geoid - solid - load - pole
-        weights = 1.0 / (phase * dheight) ** 2
+        wse = df["wse"].to_numpy()
+        weights = df["height_std"].to_numpy()
         dates = time.astype("datetime64[D]")
 
         self._numpy_cache = (
@@ -264,6 +257,16 @@ class SPixcFast:
     # =========================
     # FAST COMPUTATION
     # =========================
+
+    def compute_wse(self):
+        self._filtered = self._filtered.with_columns(
+            (pl.col("height") - pl.col("geoid") - pl.col("solid_earth_tide") - pl.col("load_tide_fes") - pl.col(
+                "pole_tide")).alias("wse")
+        )
+        self._filtered = self._filtered.with_columns(
+            (1 / ((pl.col("phase_noise_std") * pl.col("dheight_dphase")) ** 2)).alias("height_std")
+        )
+
 
     def compute_wse_by_day(self, method_uncertainty="weighted_variance"):
 
@@ -302,32 +305,6 @@ class SPixcFast:
     def mask_according_to_polygon(self, polygon_path):
 
         import geopandas as gpd
-
-        df = self._filtered.collect().to_pandas()
-
-        gdf_poly = gpd.read_file(polygon_path)
-
-        if gdf_poly.crs != "EPSG:4326":
-            gdf_poly = gdf_poly.to_crs("EPSG:4326")
-
-        gdf_pts = gpd.GeoDataFrame(
-            df,
-            geometry=gpd.points_from_xy(df.longitude, df.latitude),
-            crs="EPSG:4326"
-        )
-
-        clipped = gpd.clip(gdf_pts, gdf_poly)
-
-        # back to polars
-        self._filtered = pl.from_pandas(clipped.drop(columns="geometry")).lazy()
-
-        # reset cache
-        self._numpy_cache = None
-
-
-    def mask_according_to_polygon_fast(self, polygon_path):
-
-        import geopandas as gpd
         from shapely import vectorized
 
         gdf = gpd.read_file(polygon_path)
@@ -338,7 +315,7 @@ class SPixcFast:
         polygon = gdf.geometry.unary_union
         minx, miny, maxx, maxy = polygon.bounds
 
-        # 👉 step 1: bounding box filter (lazy, fast)
+        # step 1: lazy bbox filter
         df = self._filtered.filter(
             (pl.col("longitude") >= minx) &
             (pl.col("longitude") <= maxx) &
@@ -346,22 +323,32 @@ class SPixcFast:
             (pl.col("latitude") <= maxy)
         )
 
-        # 👉 step 2: collect ONLY coordinates
+        # step 2: collect ONLY coords
         coords = df.select(["longitude", "latitude"]).collect()
 
-        lon = coords["longitude"].to_numpy()
-        lat = coords["latitude"].to_numpy()
-
-        mask = vectorized.contains(polygon, lon, lat)
+        mask = vectorized.contains(
+            polygon,
+            coords["longitude"].to_numpy(),
+            coords["latitude"].to_numpy()
+        )
+        #
+        # # step 3: reattach mask WITHOUT index duplication
+        # coords = coords.with_columns(pl.Series("mask", mask))
+        #
+        # filtered_coords = coords.filter(pl.col("mask")).drop("mask")
+        #
+        # self._filtered = df.join(
+        #     filtered_coords.lazy(),
+        #     on=["longitude", "latitude"],
+        #     how="inner"
+        # )
 
         # 👉 step 3: apply mask via index (NO pandas)
-        df = df.with_row_count("row_nr")
+        df = df.with_row_index("row_nr")
 
         idx = np.where(mask)[0]
 
         self._filtered = df.filter(pl.col("row_nr").is_in(idx)).drop("row_nr")
-
-        self._numpy_cache = None
 
     def filter_by_space_stats(self, method="normal", threshold=2):
 
@@ -425,41 +412,33 @@ class SPixcFast:
 
     def filter_by_wsedaystats(self, method="normal", threshold=2):
 
-        if self._wse_by_day is None:
-            self._wse_by_day = self.compute_wse_by_day()
+        if 'wse' not in self._filtered.collect_schema().names():
+            self.compute_wse()
 
-        series = self._wse_by_day["wse_by_day"].values
-
-        # compute stats (NumPy is fine here)
-        if method == "normal":
-            center = np.nanmean(series)
-            scale = np.nanstd(series)
-        else:
-            med = np.nanmedian(series)
-            center = med
-            scale = np.nanmedian(np.abs(series - med)) * 1.4826
-
-        keep_days = self._wse_by_day.index[
-            (series >= center - threshold * scale) &
-            (series <= center + threshold * scale)
-            ]
-
-        # 👉 convert to numpy datetime64[D]
-        keep_days = np.array(keep_days, dtype="datetime64[D]")
-
-        # 👉 stay in Polars
-        self._filtered = (
+        df_day = (
             self._filtered
-            .with_columns(pl.col("time").dt.date().alias("date"))
-            .filter(pl.col("date").is_in(keep_days))
-            .drop("date")
+            .with_columns(pl.col("time").dt.truncate("1d").alias("date"))
+            .group_by("date")
+            .agg(pl.col("wse").mean().alias("wse_by_day"))
         )
-        self._numpy_cache = None
+
+        stats = df_day.select([
+            pl.col("wse_by_day").mean().alias("mean"),
+            pl.col("wse_by_day").std().alias("std")
+        ]).collect()
+
+        center = stats["mean"][0]
+        scale = stats["std"][0]
+
+        self._filtered = self._filtered.filter(
+            (pl.col("wse") >= center - threshold * scale) &
+            (pl.col("wse") <= center + threshold * scale)
+        )
 
     def _apply_numpy_mask(self, mask):
 
         # create row index
-        df = self._filtered.with_row_count("row_nr")
+        df = self._filtered.with_row_index("row_nr")
 
         # collect only indices (lightweight)
         idx = np.where(mask)[0]
