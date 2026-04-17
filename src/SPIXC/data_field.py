@@ -35,7 +35,10 @@ class DataField:
 
     def _load_csv(self):
         data = pd.read_csv(self._filename, index_col=0, parse_dates=True)
-        data.index = pd.to_datetime(data.index)
+        try:data.index = pd.to_datetime(data.index)
+        except pd._libs.tslibs.parsing.DateParseError:
+            data = pd.read_csv(self._filename, index_col=0, parse_dates=True,sep=";")
+            data.index = pd.to_datetime(data.index)
         self._data = data
 
 ##COMPUTE
