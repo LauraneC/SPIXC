@@ -8,6 +8,7 @@ from typing import Literal
 from datetime import date
 from pathlib import Path
 from shapely import vectorized
+import pandas as pd
 
 MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["random", "total", "weighted_variance"]
@@ -398,12 +399,13 @@ class SPixc:
         else:
             raise ValueError(f"method_uncertainty must be one of {MethodSTD.__args__}")
 
-        self._wse_by_day = pl.DataFrame({
+        self._wse_by_day = pd.DataFrame({
             "date": unique_dates,
             "wse_by_day": wse_by_day,
             "uncertainty": uncertainty,
             "n_points": n_eff
         })
+        self._wse_by_day.index = pd.DatetimeIndex(self._wse_by_day["date"])
 
         return self._wse_by_day
 
