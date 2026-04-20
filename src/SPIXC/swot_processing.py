@@ -370,7 +370,7 @@ class SPixc:
             # Apply the filter using .where() on the dataset
             self.data = self.data[(operator_func(self.data[var], threshold))]
 
-    def filter_by_space_stats(self, method_filter:MethodFilter = "normal", treshold: int = 2) -> pd.DataFrame:
+    def filter_by_space_stats(self, method_filter:MethodFilter = "normal", threshold: int = 2) -> pd.DataFrame:
         """
         Filter wse per pixel and day using spatial statics
         :param type: type of statics, normal
@@ -396,11 +396,11 @@ class SPixc:
             raise ValueError(f"Please enter one of this options {MethodFilter}")
 
         # Keep only values within center ± threshold*scale
-        self.data = data[(data["wse"] >= data["wse_center"] - treshold * data["wse_scale"]) &
-                         (data["wse"] <= data["wse_center"] + treshold * data["wse_scale"])].drop(
+        self.data = data[(data["wse"] >= data["wse_center"] - threshold * data["wse_scale"]) &
+                         (data["wse"] <= data["wse_center"] + threshold * data["wse_scale"])].drop(
             columns=["wse_center", "wse_scale"])
 
-    def filter_by_temporal_stats(self, method_filter: str = "normal", treshold: int = 3) -> pd.DataFrame:
+    def filter_by_temporal_stats(self, method_filter: str = "normal", threshold: int = 3) -> pd.DataFrame:
         """
         Filter wse per pixel and day using temporal statistics
         :param type:
@@ -426,15 +426,15 @@ class SPixc:
             raise ValueError(f"Please enter one of this options {MethodFilter}")
 
         # Keep only values within center ± threshold*scale
-        self.data = data[(data["wse"] >= data["wse_center"] - treshold * data["wse_scale"]) &
-                         (data["wse"] <= data["wse_center"] + treshold * data["wse_scale"])].drop(
+        self.data = data[(data["wse"] >= data["wse_center"] - threshold * data["wse_scale"]) &
+                         (data["wse"] <= data["wse_center"] + threshold * data["wse_scale"])].drop(
             columns=["wse_center", "wse_scale"])
 
-    def filter_by_wsedaystats(self,method_filter="normal",treshold = 2):
+    def filter_by_wsedaystats(self,method_filter="normal",threshold = 2):
         """
         Filter the wse time series using the temporal statistics of the time series
         :param type:
-        :param treshold:
+        :param threshold:
         :return:
         """
 
@@ -452,8 +452,8 @@ class SPixc:
             center = np.median(self._wse_by_day.wse_by_day)
             scale =  np.median(np.abs(self._wse_by_day.wse_by_day -center))* 1.4826
 
-        self.data = data[(data["wse"] >= center - treshold * scale) &
-                          (data["wse"] <= center + treshold * scale)]
+        self.data = data[(data["wse"] >= center - threshold * scale) &
+                          (data["wse"] <= center + threshold * scale)]
 
 
     def mask_according_to_polygon(self, polygon_name: str):
