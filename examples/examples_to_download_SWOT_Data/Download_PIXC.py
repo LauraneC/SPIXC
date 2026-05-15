@@ -5,6 +5,7 @@ import glob
 import subprocess
 import os
 import pandas as pd
+import polars as pl
 
 print("Hello")
 gdf_geom_file_name = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/area_joux.gpkg"
@@ -68,3 +69,12 @@ df_combined = pd.concat((pd.read_csv(file) for file in csv_files), ignore_index=
 
 df_combined.to_csv(f'{path_data}/combined.csv', index=False)
 
+
+# Get all Parquet files
+parquet_files = glob.glob(os.path.join(output_dir, "*.parquet"))
+
+# Read and concatenate with Polars (lazy evaluation for efficiency)
+df_combined = pl.concat([pl.scan_parquet(file) for file in parquet_files])
+
+# Execute the query and save as Parquet
+df_combined.collect().write_parquet(f"{path_data}/combined.parquet")
