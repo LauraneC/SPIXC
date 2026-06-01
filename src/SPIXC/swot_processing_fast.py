@@ -1,11 +1,12 @@
+""" Class object to work with SWOT PIXC water surface elevation stored in a csv or parquet file using polars and numba"""
+
+
 import polars as pl
 import geopandas as gpd
 import numpy as np
 import numba as nb
-from pyproj import CRS
 from scipy.stats import gaussian_kde
 from typing import Literal
-from datetime import date
 from pathlib import Path
 from shapely import vectorized
 import pandas as pd
@@ -16,7 +17,7 @@ MethodFilter = Literal["robust", "normal"]
 
 
 # ============================================================================
-# Numba-accelerated functions (kept from original, already optimized)
+# Numba-accelerated functions
 # ============================================================================
 
 @nb.njit(cache=True)

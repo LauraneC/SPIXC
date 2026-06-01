@@ -1,5 +1,7 @@
 
-# Environment installation
+# Installation
+
+## Environment installation
 
     micromamba create -n swot_env -f env_swot.yml poetry
     pip install -U eodag==2.12.1 packaging
@@ -8,15 +10,13 @@
     poetry install
 
 
-# Eodag configuration, to access hydroweb-next
+## Eodag configuration, to access hydroweb-next
 
 Follow these steps:
 
-1. If not already done, install EODAG and packaging latest version using `pip install -U eodag==2.12.1 packaging` or `conda update eodag packaging`
+1a. Generate an API-Key from Hydroweb.next portal in your user settings https://hydroweb.next.theia-land.fr/
 
-2a. Generate an API-Key from Hydroweb.next portal in your user settings https://hydroweb.next.theia-land.fr/
-
-2b. Carefully store your API-Key
+1b. Carefully store your API-Key
 
 For example for Laurane:
 5okXEHjoarWR1VQH7NB3AnU1d0KY2mPuvHyDlXkBQ1ZdTdFvbY
@@ -25,9 +25,7 @@ For example for Laurane:
 
 - or in an environment variable `export EODAG__HYDROWEB_NEXT__AUTH__CREDENTIALS__APIKEY="PLEASE_CHANGE_ME"`
 
-3. You can change download directory by modifying the variable path_out. By default, current path is used.
-
-4. You are all set, run this script `python download_SWOT_Level-2_HR_Raster_-_100m.py`
+2. You can change download directory by modifying the variable path_out. By default, current path is used.
 
 
 Example of eodag.yml (usually in ~/.config/eodag/eodag.yml):
@@ -48,11 +46,19 @@ hydroweb_next:
 
         outputs_prefix: 
 
-# If needed install RiverObs
+## If needed, you can install RiverObs
 
     git clone https://github.com/SWOTAlgorithms/RiverObs.git
     pip install --use-pep517 -e 
 
-# in case of ModuleNotFoundError: No module named 'zarr.meta'
-
+## In case of ModuleNotFoundError: No module named 'zarr.meta'
     micromamba install -c conda-forge zarr==2.13.3
+
+# Structure of the code
+
+The code is divided into 3 main class objects:
+- data_field : to manipulate in situ data, stored in a csv file
+- swot_processing : to manipulate PIXC data, stored in a csv or parquet file using pandas
+- swot_processing_fast : to manipulate PIXC data, stored in a csv or parquet file using polars
+
+

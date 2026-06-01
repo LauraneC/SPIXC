@@ -1,9 +1,7 @@
+""" Class object to work with insitu water surface elevation stored in a csv file"""
 import pandas as pd
 import numpy as np
 from permetrics import RegressionMetric #10.5281/zenodo.3951205
-import geopandas as gpd
-import operator
-from pyproj import CRS
 from typing import Literal
 
 MethodInterp = Literal["linear", "nearest"]
@@ -34,6 +32,9 @@ class DataField:
         self._data_compa = obj
 
     def _load_csv(self):
+        """
+        Load csv file
+        """
         data = pd.read_csv(self._filename, index_col=0, parse_dates=True)
         try:data.index = pd.to_datetime(data.index)
         except pd._libs.tslibs.parsing.DateParseError: #if the separator is ;
@@ -50,8 +51,7 @@ class DataField:
         :param data_compa: dataframe which contain the SWOT data to compare to
         :param preprocessing: name of the processing which have been applied, used as a index in the output dataframe
         :param method_interp: method which be used to interpolate the field data to the SWOT data, could be linear or nearest
-        :return: a dictionary with the RMSE and bias
-        :return:
+        :return: a dictionary with the RMSE and bias, and the aligned pd dataframe
         """
 
         data_compa.index = pd.to_datetime(data_compa.index).tz_localize(None)

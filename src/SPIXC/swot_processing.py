@@ -1,3 +1,5 @@
+""" Class object to work with SWOT PIXC water surface elevation stored in a csv or parquet file using pandas"""
+
 import pandas as pd
 import geopandas as gpd
 import operator
