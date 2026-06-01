@@ -33,7 +33,7 @@ try:
 
     ds_PIXC_ggp = ds_PIXC_nc.to_geodataframe()
 
-    parquet_filename = os.path.join(output_dir, f'{os.path.basename(ncfile).replace(".nc", ".csv")}')
+    parquet_filename = os.path.join(output_dir, f'{os.path.basename(ncfile).replace(".nc", ".parquet")}')
     ds_PIXC_ggp.to_parquet(parquet_filename, index=False, engine='pyarrow')
 
 

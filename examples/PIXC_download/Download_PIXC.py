@@ -43,13 +43,13 @@ for ncfile in nc_files:
     print(f"Processing: {ncfile}")
     try:
         result = subprocess.run(
-            ['python3', 'Export_PIXC_netcdf_to_csv.py', ncfile, output_dir, gdf_geom_file_name],
+            ['python3', 'Export_PIXC_netcdf_to_parquet.py', ncfile, output_dir, gdf_geom_file_name],
             check=True
         )
     except subprocess.CalledProcessError as e:
         try:
             result = subprocess.run(
-                ['python3', 'Export_PIXC_netcdf_to_csv.py', ncfile, output_dir, gdf_geom_file_name],
+                ['python3', 'Export_PIXC_netcdf_to_parquet.py', ncfile, output_dir, gdf_geom_file_name],
                 check=True
             )
         except subprocess.CalledProcessError as e:
