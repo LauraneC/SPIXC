@@ -7,17 +7,19 @@ import os
 import pandas as pd
 import polars as pl
 
-print("Hello")
-gdf_geom_file_name = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/area_joux.gpkg"
-filename_crash_file = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/crash_files.txt"
-path_data = '/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/'
-
+gdf_geom_file_name = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/area_joux.gpkg" #name of area where to download the data
+filename_crash_file = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/crash_files.txt" #name of file where to put the crashed filed
+path_data = '/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/' #name of the path where to save the data
 
 dates = (datetime(2023,1,1),datetime(2026,3,25))
+
+
 output_dir = os.path.join(path_data, 'gpd_withoutfiltering')
 path_netcdf = os.path.join(path_data, 'netcdf')
-#
-# ## Download PIXC as NetCDF
+
+# ============================================================================
+# Download PIXC as NetCDF
+# ============================================================================
 os.makedirs(path_netcdf, exist_ok=True)
 #
 gdf_geom = gpd.read_file(gdf_geom_file_name)
@@ -30,7 +32,10 @@ pixcdownloader = PixCDownloader(
     )
 pixcdownloader.search_download()
 
-#Save it csv
+# ============================================================================
+# Export them as csv files with selected variables
+# ============================================================================
+
 nc_files = glob.glob(path_data + 'netcdf/*/*.nc')
 os.makedirs(output_dir, exist_ok=True)
 crashed_files = []
@@ -61,20 +66,12 @@ if crashed_files:
 else:
     print("\n✅ All files processed successfully.")
 
-## Merge them into one csv file
-csv_files = glob.glob(os.path.join(output_dir, "*.csv"))
+# ============================================================================
+# Merge them into one parquet file
+# ============================================================================
+csv_files = glob.glob(os.path.join(output_dir, "*.parquet"))
 
-# Read and concatenate all CSV files
-df_combined = pd.concat((pd.read_csv(file) for file in csv_files), ignore_index=True)
+# Read and concatenate all files
+df_combined = pd.concat((pd.read_parquet(file) for file in csv_files), ignore_index=True)
 
-df_combined.to_csv(f'{path_data}/combined.csv', index=False)
-
-
-# Get all Parquet files
-parquet_files = glob.glob(os.path.join(output_dir, "*.parquet"))
-
-# Read and concatenate with Polars (lazy evaluation for efficiency)
-df_combined = pl.concat([pl.scan_parquet(file) for file in parquet_files])
-
-# Execute the query and save as Parquet
-df_combined.collect().write_parquet(f"{path_data}/combined.parquet")
+df_combined.to_parquet(f"{path_data}/combined.parquet")

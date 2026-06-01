@@ -33,8 +33,9 @@ try:
 
     ds_PIXC_ggp = ds_PIXC_nc.to_geodataframe()
 
-    csv_filename = os.path.join(output_dir, f'{os.path.basename(ncfile).replace(".nc", ".csv")}')
-    ds_PIXC_ggp.to_csv(csv_filename, index=False)
+    parquet_filename = os.path.join(output_dir, f'{os.path.basename(ncfile).replace(".nc", ".csv")}')
+    ds_PIXC_ggp.to_parquet(parquet_filename, index=False, engine='pyarrow')
+
 
 except Exception as e:
     print(f"Error processing {ncfile}: {e}")
