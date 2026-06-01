@@ -72,12 +72,19 @@ class DataField:
 
         if method_interp == "linear":
             # Reindex to target timestamps
-            data_interp = (
-                data
-                .reindex(data.index.union(target_index))
-                .interpolate(method="time")
-                .loc[target_index]
-            )
+            try:
+                data_interp = (
+                    data
+                    .reindex(data.index.union(target_index))
+                    .interpolate(method="time")
+                    .loc[target_index])
+            except ValueError:
+                data = data.groupby(level=0).mean()
+                data_interp = (
+                    data
+                    .reindex(data.index.union(target_index))
+                    .interpolate(method="time")
+                    .loc[target_index])
             aligned = pd.DataFrame({"wse_1":data_compa,"wse_2":data_interp.wse_2})
 
         if method_interp == "nearest":

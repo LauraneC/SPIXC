@@ -4,7 +4,6 @@ import pandas as pd
 import geopandas as gpd
 import operator
 from pyproj import CRS
-import numpy as np
 import math
 from scipy.stats import gaussian_kde
 from typing import Literal
@@ -39,7 +38,7 @@ def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.arra
 
 
 @nb.njit
-def weighted_mean_numba(values, weights, group_idx, n_groups):
+def weighted_mean_numba(values:np.array, weights:np.array, group_idx:np.array, n_groups):
     sum_w = np.zeros(n_groups)
     sum_vw = np.zeros(n_groups)
 
@@ -329,48 +328,78 @@ class SPixc:
         return None
 
     ### PRE-PROCESSING
-
-    def filter_by_variable(self, conditions) -> None:
+    def filter_by_variable(self, conditions: dict) -> None:
         """
-        Filters xarray dataset based on operator and threshold on specific variables.
-        function modified from PIXCDust
+        Filters xarray dataset based on operator and threshold on specific variables,
+        or using an absolute value range filter.
 
-        :param conditions: Conditions to filter variables.\
-                    Example: {\
-                    "sig0":{'operator': "ge", 'threshold': 20},\
-                    "classification":{'operator': "ge", 'threshold': 3},\
-                    }
-        Note that Perform “rich comparisons” between a and b. Specifically, lt(a, b) is equivalent to a < b, le(a, b) is equivalent to a <= b, eq(a, b) is equivalent to a == b, ne(a, b) is equivalent to a != b, gt(a, b) is equivalent to a > b and ge(a, b) is equivalent to a >= b.
+        :param conditions: Conditions to filter variables.
+            Example:
+            {
+                "sig0": {"operator": "ge", "threshold": 20},
+                "classification": {"operator": "ge", "threshold": 3},
+                "temperature": {"abs_between": [10, 20]}
+            }
+        Note that Perform “rich comparisons” between a and b. Specifically, lt(a, b) is equivalent to a < b,
+        le(a, b) is equivalent to a <= b, eq(a, b) is equivalent to a == b, ne(a, b) is equivalent to a != b,
+        gt(a, b) is equivalent to a > b and ge(a, b) is equivalent to a >= b.
+        For "abs_between", the value must be between the lower and upper bounds (inclusive).
+
         Raises:
             IOError: If the variable provided in conditions is not in the dataset.
-            ValueError: If 'operator' or 'threshold' keys are not in conditions.
+            ValueError: If 'operator' or 'threshold' keys are not in conditions, or if 'abs_between' is malformed.
             AttributeError: If operator is not the function name of the operator module.
         """
         _k_operator = 'operator'
         _k_to = 'threshold'
+        _k_abs_between = 'abs_between'
 
-        # Loop through each condition and apply the filter
+        filters = []
+
         for var, condition in conditions.items():
-            if var not in self.data.columns:
+            if var not in self.data:
                 raise IOError(
-                    f"Variable '{var}' not found in dataset variables (available: {list(self.data.variables)})"
+                    f"Variable '{var}' not found in dataset variables (available: {list(self.data.data_vars)})"
                 )
 
-            # Ensure the condition dictionary has the correct keys
-            if _k_operator not in condition or _k_to not in condition:
-                raise ValueError(f"Condition for variable '{var}' must include '{_k_operator}' and '{_k_to}'")
+            # --- Absolute value range filter ---
+            if _k_abs_between in condition:
+                bounds = condition[_k_abs_between]
+                if len(bounds) != 2:
+                    raise ValueError(f"'abs_between' for '{var}' must be a list/tuple of [lower, upper].")
+                lower, upper = bounds
+                if lower > upper:
+                    raise ValueError(f"For '{var}', lower bound must be <= upper bound.")
+                # Create a mask for absolute value between lower and upper
+                abs_var = np.abs(self.data[var])
+                mask = (abs_var >= lower) & (abs_var <= upper)
+                filters.append(mask)
+                continue
 
-            # Get the operator function dynamically from the operator module
+            # --- Standard operator filter ---
+            if _k_operator not in condition or _k_to not in condition:
+                raise ValueError(
+                    f"Condition for variable '{var}' must include either "
+                    f"'{_k_operator}' + '{_k_to}' or '{_k_abs_between}'"
+                )
+
             try:
                 operator_func = getattr(operator, condition[_k_operator])
             except AttributeError:
                 raise AttributeError(
-                    f"Operator '{condition[_k_operator]}' is not a valid operator in the operator module")
+                    f"Operator '{condition[_k_operator]}' is not a valid operator in the operator module"
+                )
 
             threshold = condition[_k_to]
+            mask = operator_func(self.data[var], threshold)
+            filters.append(mask)
 
-            # Apply the filter using .where() on the dataset
-            self.data = self.data[(operator_func(self.data[var], threshold))]
+        # Combine all filters with logical AND
+        if filters:
+            combined_filter = filters[0]
+            for f in filters[1:]:
+                combined_filter = combined_filter & f
+            self.data = self.data[combined_filter]
 
     def filter_by_space_stats(self, method_filter:MethodFilter = "normal", threshold: int = 2) -> pd.DataFrame:
         """
