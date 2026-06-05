@@ -4,6 +4,7 @@ import pandas as pd
 import geopandas as gpd
 import operator
 from pyproj import CRS
+from pathlib import Path
 import math
 from scipy.stats import gaussian_kde
 from typing import Literal
@@ -16,7 +17,7 @@ MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["random","total","weighted_variance"]
 MethodFilter = Literal["robust","normal"]
 
-def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.array):
+def weighted_avg_and_std(values:np.array, weights:np.array)-> tuple[np.ndarray, np.ndarray]:
     """
     Compute weighted average and standard deviation.
     :param values: data used to compute weighted average and standard deviation.
@@ -34,8 +35,6 @@ def weighted_avg_and_std(values:np.array, weights:np.array)-> (np.array, np.arra
     avg = np.nansum(values * weights) / sum_w
     var = np.nansum(weights * (values - avg) ** 2) / sum_w
     return avg, math.sqrt(var)
-
-
 
 @nb.njit
 def weighted_mean_numba(values:np.array, weights:np.array, group_idx:np.array, n_groups):
@@ -140,7 +139,6 @@ def get_pdf_peak_value(data_array:pd.DataFrame, remove_outliers:bool=True):
     peak_value = x_grid[np.argmax(pdf)]
     return peak_value
 
-
 class SPixc:
     def __init__(self, filename: str):
         """
@@ -158,13 +156,23 @@ class SPixc:
     @property  # SPixx.ds will directly call this function, i.e. load the csv file if needed
     def data(self) -> pd.DataFrame:
         if self._data is None:
-            self._load_csv()
+            if Path(self._filename).suffix == ".parquet":
+                self._load_parquet()
+            elif Path(self._filename).suffix == ".csv":
+                self._load_csv()
+            else: raise NotImplementedError("Please provide csv or parquet files")
         return self._data
-
+    
     @data.setter
     def data(self, obj: pd.DataFrame) -> None:
         self._data = obj
 
+    def _load_parquet(self):
+        data = pd.read_parquet(self._filename)
+        data['time'] = pd.to_datetime(data['time'])
+        data.set_index('time', inplace=True)
+        data.sort_index(inplace=True)
+        self._data = data
 
     def _load_csv(self):
         data = pd.read_csv(self._filename)
