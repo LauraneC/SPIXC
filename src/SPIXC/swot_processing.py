@@ -155,7 +155,6 @@ class SPixc:
 
     @property  # SPixx.ds will directly call this function, i.e. load the csv file if needed
     def data(self) -> pd.DataFrame:
-        """Lazy-load the parquet file."""
         if self._data is None:
             if Path(self._filename).suffix == ".parquet":
                 self._load_parquet()
@@ -167,7 +166,6 @@ class SPixc:
     @data.setter
     def data(self, obj: pd.DataFrame) -> None:
         self._data = obj
-
 
     def _load_parquet(self):
         data = pd.read_parquet(self._filename)
