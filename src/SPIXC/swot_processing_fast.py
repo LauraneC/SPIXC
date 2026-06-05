@@ -278,13 +278,13 @@ class SPixc:
     def _load_parquet(self) -> None:
         """Load parquet file as a LazyFrame."""
         self._data = (
-            pl.scan_parquet(self._filename)
-            .with_columns(
-                pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
-            )
-            .sort("time")
+            pl.scan_parquet(self._filename, try_parse_hive_dates=True)
+            # .with_columns(
+            #     pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
+            # )
+            # .sort("time")
         )
-
+        
         self._data_collected = None
 
     def _load_csv(self) -> None:
