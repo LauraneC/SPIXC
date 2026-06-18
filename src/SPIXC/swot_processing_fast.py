@@ -280,21 +280,24 @@ class SPixc:
 
     def _load_parquet(self) -> None:
         """Load parquet file as a LazyFrame."""
-        self._data = (
-            pl.scan_parquet(self._filename)
-            .with_columns(
-                pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
-            )
-            .sort("time")
-        )
 
-        # self._data = (
-        #     pl.scan_parquet(self._filename, try_parse_hive_dates=True)
-        #     # .with_columns(
-        #     #     pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
-        #     # )
-        #     # .sort("time")
-        # )
+        #
+        # try:
+        #     self._data = (
+        #         pl.scan_parquet(self._filename)
+        #         .with_columns(
+        #             pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
+        #         )
+        #         .sort("time")
+        #     )
+        #     # # Force evaluation to catch errors early
+        #     # _ = self._data.collect()
+        # except pl.exceptions.SchemaError:
+        #     self._data = (
+        #         pl.scan_parquet(self._filename, try_parse_hive_dates=True))
+
+        self._data = (
+            pl.scan_parquet(self._filename, try_parse_hive_dates=True))
 
         self._data_collected = None
 
@@ -358,6 +361,8 @@ class SPixc:
         :param method_wse: Method for WSE computation ("ATBD" or "gaussianKDE")
         :param method_uncertainty: Method for uncertainty ("random", "total", "weighted_variance")
         :return: DataFrame with daily WSE, uncertainty, and point counts
+
+        gaussianKDE implement the method proposed in
         """
         self._ensure_wse_computed()
         df = self.collect()
