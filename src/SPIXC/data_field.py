@@ -103,5 +103,5 @@ class DataField:
         absolute_errors = np.abs(aligned["wse_1"] - aligned["wse_2"])
         percentile_68 = np.percentile(absolute_errors, 68)
 
-        stats_tab = pd.DataFrame({"preprocessing":[preprocessing],"RMSE": [results["RMSE"]], "Bias": [bias], "KGE": [results["KGE"]],"MAE":[results["MAE"]], "MAPE":[results["MAPE"]], "R2": [results["R2"]],"R":[results["R"]], "1 sigma":percentile_68,"nb_points":aligned.shape[0]})
+        stats_tab = pd.DataFrame({"preprocessing":[preprocessing],"1 sigma":percentile_68, "Bias": [bias],"RMSE": [results["RMSE"]], "KGE": [results["KGE"]],"MAE":[results["MAE"]], "MAPE":[results["MAPE"]], "R2": [results["R2"]],"R":[results["R"]],"nb_points":aligned.shape[0]})
         return stats_tab, aligned
