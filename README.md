@@ -61,4 +61,12 @@ The code is divided into 3 main class objects:
 - swot_processing : to manipulate PIXC data, stored in a csv or parquet file using pandas
 - swot_processing_fast : to manipulate PIXC data, stored in a csv or parquet file using polars
 
+# Examples 
+
+Several examples are provided in these three folders:
+- PIXC_download : script framework used to download PIXC data as .parquet filed using PIXCDust
+- PIXC_process : notebook to process PIXC data 
+- SP_download_and_process : notebook to load and filter SP data
+
+
 

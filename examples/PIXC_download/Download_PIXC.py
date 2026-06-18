@@ -5,7 +5,6 @@ import glob
 import subprocess
 import os
 import pandas as pd
-import polars as pl
 
 gdf_geom_file_name = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/area_joux.gpkg" #name of area where to download the data
 filename_crash_file = "/cnrm/cen/micro_ondes/NO_SAVE/charriel/Joux/crash_files.txt" #name of file where to put the crashed filed

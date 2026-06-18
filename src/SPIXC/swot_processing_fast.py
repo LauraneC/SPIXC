@@ -5,8 +5,11 @@ import polars as pl
 import geopandas as gpd
 import numpy as np
 import numba as nb
+from geopandas import GeoDataFrame
+from numpy import dtype, ndarray
+from polars import DataFrame
 from scipy.stats import gaussian_kde
-from typing import Literal
+from typing import Literal, Any
 from pathlib import Path
 from shapely import vectorized
 import pandas as pd
@@ -200,7 +203,7 @@ def uncertainty_total_numba(
     return result, n_points
 
 
-def get_pdf_peak_value(wse_array: np.ndarray, remove_outliers: bool = True) -> float | None:
+def get_pdf_peak_value(wse_array: np.ndarray, remove_outliers: bool = True) -> ndarray[Any, dtype[Any]] | None | Any:
     """Get the elevation of the peak density using Gaussian KDE."""
     data = wse_array[~np.isnan(wse_array)]
 
@@ -256,7 +259,7 @@ class SPixc:
     # ========================================================================
 
     @property
-    def data(self) -> pl.LazyFrame:
+    def data(self) -> pl.LazyFrame | None:
         """Lazy-load the parquet file."""
         if self._data is None:
             if Path(self._filename).suffix == ".parquet":
@@ -279,12 +282,6 @@ class SPixc:
         """Load parquet file as a LazyFrame."""
         self._data = (
             pl.scan_parquet(self._filename, try_parse_hive_dates=True)
-            # .with_columns(
-            #     pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
-            # )
-            # .sort("time")
-        )
-        
         self._data_collected = None
 
     def _load_csv(self) -> None:
@@ -296,13 +293,13 @@ class SPixc:
         self._data_collected = None
 
 
-    def collect(self) -> pl.DataFrame:
+    def collect(self) -> DataFrame | None:
         """Collect the LazyFrame into a DataFrame (materializes the data)."""
         if self._data_collected is None:
             self._data_collected = self.data.collect()
         return self._data_collected
 
-    def _load_polygon(self, polygon_name: str) -> gpd.GeoDataFrame:
+    def _load_polygon(self, polygon_name: str) -> GeoDataFrame | None:
         """Load a polygon file."""
         if self._gdf is None or self._polygon_name != polygon_name:
             self._polygon_name = polygon_name
@@ -339,8 +336,8 @@ class SPixc:
     def compute_weighted_mean_wse_by_day(
             self,
             method_wse: MethodWSE = "ATBD",
-            method_uncertainty: MethodSTD = "weighted_variance"
-    ) -> pl.DataFrame:
+            method_uncertainty: MethodSTD = "weighted_variance", minimal_nb_of_points=2
+    ) -> pl.DataFrame | None:
         """
         Compute WSE per day using Numba-accelerated functions.
 
@@ -351,13 +348,15 @@ class SPixc:
         self._ensure_wse_computed()
         df = self.collect()
 
+        #convert dates to (day, month, year), and keep only the dates where there is a sufficient number of points (defined by minimal_nb_of_points)
+        df = (
+            df.with_columns(pl.col("time").dt.date().alias("date"))
+            .with_columns(pl.len().over("date").alias("n_points_raw"))
+            .filter(pl.col("n_points_raw") >= minimal_nb_of_points)
+        )
+
         if df.is_empty():
             return None
-
-        # Extract date and create group indices
-        df = df.with_columns(
-            pl.col("time").dt.date().alias("date")
-        )
 
         dates = df["date"].to_numpy()
         unique_dates, group_idx = np.unique(dates, return_inverse=True)
@@ -458,6 +457,7 @@ class SPixc:
     def filter_by_variable(self, conditions: dict) -> None:
         """
         Filter data based on variable conditions.
+        Inspired by PIXCDust library: https://github.com/SWOT-community/PixCDust.git
 
         :param conditions: Dict mapping variable names to condition specs.
             Example: {
@@ -708,7 +708,7 @@ class SPixc:
         )
 
 
-        # 👉 step 3: apply mask via index (NO pandas)
+        # step 3: apply mask via index (NO pandas)
         df = df.with_row_index("row_nr")
 
         idx = np.where(mask)[0]
