@@ -282,19 +282,14 @@ class SPixc:
         """Load parquet file as a LazyFrame."""
 
         #
-        # try:
-        #     self._data = (
-        #         pl.scan_parquet(self._filename)
-        #         .with_columns(
-        #             pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
-        #         )
-        #         .sort("time")
+        # self._data = (
+        #     pl.scan_parquet(self._filename)
+        #     .with_columns(
+        #         pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
         #     )
-        #     # # Force evaluation to catch errors early
-        #     # _ = self._data.collect()
-        # except pl.exceptions.SchemaError:
-        #     self._data = (
-        #         pl.scan_parquet(self._filename, try_parse_hive_dates=True))
+        #     .sort("time")
+        #     )
+
 
         self._data = (
             pl.scan_parquet(self._filename, try_parse_hive_dates=True))
@@ -792,6 +787,24 @@ class SPixc:
         result = pd.concat(masked_parts).sort_values("time")
         self._data = pl.from_pandas(result).lazy()
         self._data_collected = None
+
+    # ========================================================================
+    # Utility Methods
+    # ========================================================================
+    def get_orbit_number(self) -> pd.DataFrame:
+        """
+        Return a pd.Dataframe with an orbit number per date
+        """
+        # Assuming datapixc is a Polars DataFrame
+        orbit_number = (
+            self.data
+            .group_by(pl.col("time").dt.date())  # Group by date part of "time"
+            .agg(pl.col("pass_number").first())  # Get first pass_number for each date
+        )
+        print("Start collecting orbit number")
+        orbit_number = orbit_number.collect()
+        orbit_number = orbit_number.to_pandas()
+        return orbit_number
 
     # ========================================================================
     # Utility Methods
