@@ -280,18 +280,18 @@ class SPixc:
 
     def _load_parquet(self) -> None:
         """Load parquet file as a LazyFrame."""
-        #
-        # self._data = (
-        #     pl.scan_parquet(self._filename)
-        #     .with_columns(
-        #         pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
-        #     )
-        #     .sort("time")
-        #     )
+
+        self._data = (
+            pl.scan_parquet(self._filename)
+            .with_columns(
+                pl.col("time").str.to_datetime(format=None, strict=False).alias("time")
+            )
+            .sort("time")
+            )
 
         #
-        self._data = (
-            pl.scan_parquet(self._filename, try_parse_hive_dates=True))
+        # self._data = (
+        #     pl.scan_parquet(self._filename, try_parse_hive_dates=True))
         self._data_collected = None
 
     def _load_csv(self) -> None:
@@ -699,14 +699,19 @@ class SPixc:
     # Spatial Masking
     # ========================================================================
 
-    def mask_according_to_polygon(self, polygon_path):
+    def mask_according_to_polygon(self, polygon_path:str):
+        """
+        Mask the data according to a given polygon using vectorized.contains.
+        It checks whether each pixel is inside the polygon.
+        :param polygon_path: path of the polygon
+        """
 
         gdf = gpd.read_file(polygon_path)
 
         if gdf.crs != "EPSG:4326":
             gdf = gdf.to_crs("EPSG:4326")
 
-        polygon = gdf.geometry.unary_union
+        polygon = gdf.geometry.unary_union #take the union in case there are several polygons
         minx, miny, maxx, maxy = polygon.bounds
 
         # step 1: lazy bbox filter
