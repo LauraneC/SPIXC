@@ -289,7 +289,7 @@ class SPixc:
         #     .sort("time")
         #     )
 
-
+        #
         self._data = (
             pl.scan_parquet(self._filename, try_parse_hive_dates=True))
         self._data_collected = None
@@ -536,6 +536,13 @@ class SPixc:
             self._data = self.data.filter(combined_filter)
             self._data_collected = None
 
+    def filter_by_date(self,date_str_bounds:list[str]):
+        """
+        Select the data between two dates
+        :param date_str_bounds: list of strings of date bounds
+        """
+        date1, date2 = date_str_bounds
+        self._data =self.data.filter((pl.col("time").dt.date() >= pl.lit(date1).str.to_date())&(pl.col("time").dt.date() <= pl.lit(date2).str.to_date()))
 
 
     def filter_by_space_stats(
