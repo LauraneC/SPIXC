@@ -16,7 +16,7 @@ import pandas as pd
 
 MethodWSE = Literal["ATBD", "gaussianKDE"]
 MethodSTD = Literal["random", "total", "weighted_variance"]
-MethodFilter = Literal["robust", "normal"]
+MethodFilter = Literal["robust", "normal","IQR"]
 
 
 # ============================================================================
@@ -598,8 +598,24 @@ class SPixc:
             ).drop(["wse_median", "wse_mad"])
 
             self._data = df.lazy()
-        else:
-            raise ValueError(f"method_filter must be one of {MethodFilter.__args__}")
+
+        elif method_filter == "IQR":
+            self._data = (
+            self.data
+            .with_columns([
+                pl.col("wse").quantile(0.25).over("time").alias("wse_q1"),
+                pl.col("wse").quantile(0.75).over("time").alias("wse_q3"),
+            ])
+            .with_columns(
+                (pl.col("wse_q3") - pl.col("wse_q1")).alias("wse_iqr")
+            )
+            .filter(
+                (pl.col("wse") >= pl.col("wse_q1") - threshold * pl.col("wse_iqr")) &
+                (pl.col("wse") <= pl.col("wse_q3") + threshold * pl.col("wse_iqr"))
+            )
+            .drop(["wse_q1", "wse_q3", "wse_iqr"]))
+
+        else: raise ValueError(f"method_filter must be one of {MethodFilter.__args__}")
 
         self._data_collected = None
 
@@ -684,11 +700,19 @@ class SPixc:
         elif method_filter == "robust":
             center = np.median(wse_values)
             scale = np.median(np.abs(wse_values - center)) * 1.4826
+        elif method_filter == "IQR":
+            Q1 = np.percentile(wse_values, 25)
+            Q3 = np.percentile(wse_values, 75)
+            IQR = Q3 - Q1
         else:
             raise ValueError(f"method_filter must be one of {MethodFilter.__args__}")
 
-        lower = center - threshold * scale
-        upper = center + threshold * scale
+        if method_filter == "normal" or method_filter == "robust":
+            lower = center - threshold * scale
+            upper = center + threshold * scale
+        elif method_filter == "IQR":
+            lower = Q1 - 1.5 * IQR
+            upper = Q3 + 1.5 * IQR
 
         self._data = self.data.filter(
             (pl.col("wse") >= lower) & (pl.col("wse") <= upper)
@@ -705,7 +729,7 @@ class SPixc:
         It checks whether each pixel is inside the polygon.
         :param polygon_path: path of the polygon
         """
-
+        if self._data is None : self._data = self.data
         gdf = gpd.read_file(polygon_path)
 
         if gdf.crs != "EPSG:4326":
