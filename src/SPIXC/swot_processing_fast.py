@@ -289,7 +289,7 @@ class SPixc:
             .sort("time")
             )
 
-        #
+
         # self._data = (
         #     pl.scan_parquet(self._filename, try_parse_hive_dates=True))
         self._data_collected = None
@@ -308,6 +308,9 @@ class SPixc:
         if self._data_collected is None:
             self._data_collected = self.data.collect()
         return self._data_collected
+
+    def check_empty(self):
+        return self._data.limit(1).collect().is_empty()
 
     def _load_polygon(self, polygon_name: str) -> GeoDataFrame | None:
         """Load a polygon file."""
