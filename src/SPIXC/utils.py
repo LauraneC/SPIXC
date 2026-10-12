@@ -52,10 +52,17 @@ def load_polygon_map_from_folder(folder_path: str, base_name: str = "Lac_Joux") 
 
 def convert_npy(dyn_path:str):
     S1_dyn = np.load(dyn_path)
-    S1_dyn_converted = pd.DataFrame({
-        'time_str': pd.date_range("2016-01-01", "2024-12-15", freq="MS") + pd.Timedelta(days=14),
-        'area': S1_dyn.flatten() / 10 ** 6
-    })
+    if S1_dyn.shape[0] == 10: #upated files, until 2025
+        S1_dyn_converted = pd.DataFrame({
+            'time_str': pd.date_range("2016-01-01", "2025-12-15", freq="MS") + pd.Timedelta(days=14),
+            'area': S1_dyn.flatten() / 10 ** 6
+        })
+    elif S1_dyn.shape[0] == 9:#upated files, until 2024
+        S1_dyn_converted = pd.DataFrame({
+            'time_str': pd.date_range("2016-01-01", "2024-12-15", freq="MS") + pd.Timedelta(days=14),
+            'area': S1_dyn.flatten() / 10 ** 6
+        })
+    else: print("Incorrect shape")
     S1_dyn_converted.set_index('time_str', inplace=True)
     return S1_dyn_converted
 

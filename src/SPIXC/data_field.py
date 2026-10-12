@@ -96,7 +96,7 @@ class DataField:
                 direction="nearest",  # take closest in time
             )
         # Compute RMSE
-        bias = np.mean(aligned["wse_1"]) - np.mean(aligned["wse_2"])
+        bias = np.mean(aligned["wse_1"] - aligned["wse_2"])
         evaluator = RegressionMetric(aligned["wse_2"].to_numpy(), aligned["wse_1"].to_numpy())
         results = evaluator.get_metrics_by_list_names(["RMSE", "MAE", "MAPE", "R2", "KGE","R"])
 
